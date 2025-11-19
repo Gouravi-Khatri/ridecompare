@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RideCompare - Cab Fare Aggregator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 50%, #faf5ff 100%);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <!-- Booking Processing Overlay -->
+    <div id="processingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 max-w-md mx-4 text-center">
+            <div class="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-600 mx-auto mb-4"></div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Processing Your Booking</h3>
+            <p class="text-gray-600">Please wait while we confirm your ride...</p>
+        </div>
+    </div>
+
+    <!-- Booking Confirmation Screen -->
+    <div id="confirmationScreen" class="hidden fixed inset-0 bg-gradient-to-br from-green-50 to-blue-50 z-50 overflow-y-auto">
+        <div class="max-w-2xl mx-auto px-4 py-8">
+            <!-- Success Header -->
+            <div class="bg-white rounded-2xl shadow-lg p-8 mb-6 text-center">
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Booking Confirmed!</h2>
+                <p class="text-gray-600 mb-4">Your ride has been successfully booked</p>
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 inline-block">
+                    <p class="text-sm text-gray-600 mb-1">Booking ID</p>
+                    <p class="text-2xl font-bold text-blue-600" id="bookingId"></p>
+                </div>
+            </div>
+
+            <!-- Driver Details -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Driver Details</h3>
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold" id="driverInitial"></div>
+                    <div class="flex-1">
+                        <h4 class="text-lg font-bold text-gray-900" id="driverName"></h4>
+                        <div class="flex items-center gap-2">
+                            <span class="text-yellow-500">★</span>
+                            <span class="font-semibold" id="driverRating"></span>
+                            <span class="text-gray-400">•</span>
+                            <span class="text-gray-600" id="vehicleNumber"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 text-center">
+                    <p class="text-sm text-gray-700 mb-1">Ride OTP</p>
+                    <p class="text-4xl font-bold text-gray-900 tracking-wider" id="rideOTP"></p>
+                    <p class="text-xs text-gray-600 mt-2">Share this OTP with your driver to start the ride</p>
+                </div>
+            </div>
+
+            <!-- Trip Summary -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Trip Summary</h3>
+                
+                <div class="space-y-4 mb-6">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-500">Pickup</p>
+                            <p class="font-semibold text-gray-900" id="confirmPickup"></p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-500">Drop-off</p>
+                            <p class="font-semibold text-gray-900" id="confirmDropoff"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="text-center p-3 bg-gray-50 rounded-xl">
+                        <p class="text-sm text-gray-500 mb-1">Distance</p>
+                        <p class="text-lg font-bold text-gray-900"><span id="confirmDistance"></span> km</p>
+                    </div>
+                    <div class="text-center p-3 bg-gray-50 rounded-xl">
+                        <p class="text-sm text-gray-500 mb-1">ETA</p>
+                        <p class="text-lg font-bold text-gray-900"><span id="confirmETA"></span> min</p>
+                    </div>
+                    <div class="text-center p-3 bg-gray-50 rounded-xl">
+                        <p class="text-sm text-gray-500 mb-1">Fare</p>
+                        <p class="text-lg font-bold text-gray-900">₹<span id="confirmFare"></span></p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="text-3xl" id="confirmLogo"></div>
+                        <div>
+                            <p class="text-sm text-gray-600" id="confirmProvider"></p>
+                            <p class="font-bold text-gray-900" id="confirmRideType"></p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-600">Total Amount</p>
+                        <p class="text-2xl font-bold text-gray-900">₹<span id="confirmTotalFare"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="space-y-3">
+                    <button class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-semibold hover:shadow-lg transition-all">
+                        Track Your Ride
+                    </button>
+                    <button class="w-full bg-green-600 text-white py-4 rounded-xl font-semibold hover:bg-green-700 transition-all">
+                        Contact Driver
+                    </button>
+                    <button onclick="handleNewBooking()" class="w-full border-2 border-gray-300 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-50 transition-all">
+                        Book Another Ride
+                    </button>
+                </div>
+            </div>
+
+            <p class="text-center text-gray-500 text-sm mt-6">
+                Need help? Contact support at support@ridecompare.com
+            </p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp">
+        <!-- Header -->
+        <div class="bg-white shadow-sm border-b sticky top-0 z-10">
+            <div class="max-w-6xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-xl">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">RideCompare</h1>
+                            <p class="text-sm text-gray-500">Find the best cab fares instantly</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-6xl mx-auto px-4 py-8">
+            <!-- Search Form -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+                <div class="space-y-4">
+                    <div class="relative">
+                        <svg class="absolute left-3 top-3 text-green-600 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        </svg>
+                        <input
+                            type="text"
+                            id="pickupInput"
+                            placeholder="Pickup location"
+                            class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                        />
+                    </div>
+                    
+                    <div class="relative">
+                        <svg class="absolute left-3 top-3 text-red-600 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                        </svg>
+                        <input
+                            type="text"
+                            id="dropoffInput"
+                            placeholder="Drop-off location"
+                            class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                        />
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button
+                            onclick="handleSearch()"
+                            id="searchBtn"
+                            class="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Compare Fares
+                        </button>
+                        <button
+                            onclick="handleQuickFill()"
+                            class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                        >
+                            Quick Fill
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden bg-white rounded-2xl shadow-lg p-12 text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600 font-medium">Fetching best fares for you...</p>
+            </div>
+
+            <!-- Results Container -->
+            <div id="resultsContainer" class="hidden"></div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="bg-white rounded-2xl shadow-lg p-12 text-center">
+                <div class="text-6xl mb-4">🚗🛵🚕</div>
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">Ready to Compare Fares?</h3>
+                <p class="text-gray-600 mb-6">
+                    Enter your pickup and drop-off locations to see the best cab fares from Uber, Rapido, and Namma Yatri
+                </p>
+                <button
+                    onclick="handleQuickFill()"
+                    class="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-all"
+                >
+                    Try with Sample Locations
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking Bottom Bar -->
+    <div id="bookingBar" class="hidden fixed bottom-0 left-0 right-0 bg-white border-t-4 border-blue-600 shadow-2xl p-6 z-20">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="text-4xl" id="selectedLogo"></div>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900" id="selectedTitle"></h3>
+                        <p class="text-gray-600" id="selectedDetails"></p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-gray-600 text-sm">Total Fare</p>
+                        <p class="text-3xl font-bold text-gray-900" id="selectedPrice"></p>
+                    </div>
+                    <button onclick="handleBooking()" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
+                        Book Now
+                    </button>
+                    <button onclick="cancelSelection()" class="px-4 py-3 border-2 border-gray-300 rounded-xl font-semibold hover:bg-gray-50 transition-all">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentResults = null;
+        let selectedRide = null;
+
+        const popularLocations = [
+            'MG Road, Bangalore',
+            'Koramangala, Bangalore',
+            'Indiranagar, Bangalore',
+            'Whitefield, Bangalore',
+            'Electronic City, Bangalore',
+            'HSR Layout, Bangalore'
+        ];
+
+        function handleQuickFill() {
+            const randomPickup = popularLocations[Math.floor(Math.random() * popularLocations.length)];
+            let randomDropoff = popularLocations[Math.floor(Math.random() * popularLocations.length)];
+            while (randomDropoff === randomPickup) {
+                randomDropoff = popularLocations[Math.floor(Math.random() * popularLocations.length)];
+            }
+            document.getElementById('pickupInput').value = randomPickup;
+            document.getElementById('dropoffInput').value = randomDropoff;
+        }
+
+        async function handleSearch() {
+            const pickup = document.getElementById('pickupInput').value;
+            const dropoff = document.getElementById('dropoffInput').value;
+
+            if (!pickup || !dropoff) return;
+
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('bookingBar').classList.add('hidden');
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            const distance = Math.floor(Math.random() * 15) + 5;
+            const duration = Math.floor(distance * 3) + Math.floor(Math.random() * 10);
+
+            const baseUberPrice = distance * 15 + 50;
+            const baseRapidoPrice = distance * 8 + 30;
+            const baseNammaPrice = distance * 12 + 40;
+
+            currentResults = {
+                distance,
+                duration,
+                pickup,
+                dropoff,
+                fares: [
+                    {
+                        provider: 'Uber',
+                        logo: '🚗',
+                        color: 'bg-black',
+                        rides: [
+                            { type: 'UberGo', price: Math.floor(baseUberPrice * 0.8), eta: duration + 5, seats: 4, features: ['AC', 'Compact'] },
+                            { type: 'UberX', price: Math.floor(baseUberPrice), eta: duration + 3, seats: 4, features: ['AC', 'Sedan'] },
+                            { type: 'Premier', price: Math.floor(baseUberPrice * 1.3), eta: duration + 7, seats: 4, features: ['AC', 'Premium'] }
+                        ]
+                    },
+                    {
+                        provider: 'Rapido',
+                        logo: '🛵',
+                        color: 'bg-yellow-500',
+                        rides: [
+                            { type: 'Bike', price: Math.floor(baseRapidoPrice * 0.6), eta: duration - 5, seats: 1, features: ['Fast', 'Economical'] },
+                            { type: 'Auto', price: Math.floor(baseRapidoPrice), eta: duration, seats: 3, features: ['Open', 'Affordable'] },
+                            { type: 'Cab Economy', price: Math.floor(baseRapidoPrice * 1.8), eta: duration + 4, seats: 4, features: ['AC', 'Car'] }
+                        ]
+                    },
+                    {
+                        provider: 'Namma Yatri',
+                        logo: '🚕',
+                        color: 'bg-green-600',
+                        rides: [
+                            { type: 'Auto', price: Math.floor(baseNammaPrice * 0.85), eta: duration + 2, seats: 3, features: ['Government Rates', 'No Surge'] },
+                            { type: 'Cab', price: Math.floor(baseNammaPrice * 1.2), eta: duration + 6, seats: 4, features: ['AC', 'Fair Pricing'] }
+                        ]
+                    }
+                ]
+            };
+
+            displayResults();
+        }
+
+        function displayResults() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.remove('hidden');
+
+            const bestDeal = getBestDeal();
+            
+            let html = `
+                <!-- Trip Info -->
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg p-6 mb-6 text-white">
+                    <div class="flex items-center justify-between flex-wrap gap-4">
+                        <div>
+                            <p class="text-blue-100 text-sm mb-1">Trip Details</p>
+                            <p class="font-semibold">${currentResults.pickup} → ${currentResults.dropoff}</p>
+                        </div>
+                        <div class="flex gap-6">
+                            <div class="text-center">
+                                <p class="text-blue-100 text-sm">Distance</p>
+                                <p class="text-2xl font-bold">${currentResults.distance} km</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-blue-100 text-sm">Duration</p>
+                                <p class="text-2xl font-bold">${currentResults.duration} min</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Best Deal Banner -->
+                <div class="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-4 mb-6 flex items-center gap-4">
+                    <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-900">Best Deal Available!</p>
+                        <p class="text-gray-700">
+                            ${bestDeal.provider} ${bestDeal.type} at ₹${bestDeal.price}
+                        </p>
+                    </div>
+                    <div class="text-3xl">${bestDeal.logo}</div>
+                </div>
+
+                <div class="space-y-6">
+            `;
+
+            currentResults.fares.forEach(provider => {
+                html += `
+                    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                        <div class="${provider.color} text-white px-6 py-4 flex items-center gap-3">
+                            <span class="text-3xl">${provider.logo}</span>
+                            <h2 class="text-xl font-bold">${provider.provider}</h2>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                `;
+
+                provider.rides.forEach(ride => {
+                    const isBestDeal = bestDeal.provider === provider.provider && bestDeal.type === ride.type;
+                    html += `
+                        <div onclick='selectRide(${JSON.stringify({...ride, provider: provider.provider, logo: provider.logo})})' 
+                             class="border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-md border-gray-200 hover:border-gray-300 ${isBestDeal ? 'ring-2 ring-yellow-400' : ''}">
+                            ${isBestDeal ? '<div class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full inline-block mb-2">BEST DEAL</div>' : ''}
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <h3 class="font-bold text-gray-900">${ride.type}</h3>
+                                    <div class="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                        </svg>
+                                        <span>${ride.seats} seats</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl font-bold text-gray-900">₹${ride.price}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm text-gray-600 mb-3">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span>${ride.eta} min away</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                ${ride.features.map(f => `<span class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">${f}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+
+            document.getElementById('resultsContainer').innerHTML = html;
+        }
+
+        function getBestDeal() {
+            let best = null;
+            let minPrice = Infinity;
+            
+            currentResults.fares.forEach(provider => {
+                provider.rides.forEach(ride => {
+                    if (ride.price < minPrice) {
+                        minPrice = ride.price;
+                        best = { ...ride, provider: provider.provider, logo: provider.logo };
+                    }
+                });
+            });
+            
+            return best;
+        }
+
+        function selectRide(ride) {
+            selectedRide = ride;
+            document.getElementById('selectedLogo').textContent = ride.logo;
+            document.getElementById('selectedTitle').textContent = `${ride.provider} - ${ride.type}`;
+            document.getElementById('selectedDetails').textContent = `${ride.eta} min away • ${ride.seats} seats`;
+            document.getElementById('selectedPrice').textContent = `₹${ride.price}`;
+            document.getElementById('bookingBar').classList.remove('hidden');
+        }
+
+        function cancelSelection() {
+            selectedRide = null;
+            document.getElementById('bookingBar').classList.add('hidden');
+        }
+
+        async function handleBooking() {
+            document.getElementById('processingOverlay').classList.remove('hidden');
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const drivers = ['Rajesh Kumar', 'Arun Sharma', 'Vijay Patel', 'Suresh Singh'];
+            const booking = {
+                bookingId: `BK${Date.now().toString().slice(-8)}`,
+                driverName: drivers[Math.floor(Math.random() * drivers.length)],
+                vehicleNumber: `KA ${Math.floor(Math.random() * 100)} ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))} ${Math.floor(1000 + Math.random() * 9000)}`,
+                driverRating: (4.5 + Math.random() * 0.5).toFixed(1),
+                otp: Math.floor(1000 + Math.random() * 9000)
+            };
+            
+            document.getElementById('processingOverlay').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('bookingBar').classList.add('hidden');
+            
+            document.getElementById('bookingId').textContent = booking.bookingId;
+            document.getElementById('driverName').textContent = booking.driverName;
+            document.getElementById('driverInitial').textContent = booking.driverName.charAt(0);
+            document.getElementById('driverRating').textContent = booking.driverRating;
+            document.getElementById('vehicleNumber').textContent = booking.vehicleNumber;
+            document.getElementById('rideOTP').textContent = booking.otp;
+            
+            document.getElementById('confirmPickup').textContent = currentResults.pickup;
+            document.getElementById('confirmDropoff').textContent = currentResults.dropoff;
+            document.getElementById('confirmDistance').textContent = currentResults.distance;
+            document.getElementById('confirmETA').textContent = selectedRide.eta;
+            document.getElementById('confirmFare').textContent = selectedRide.price;
+            document.getElementById('confirmLogo').textContent = selectedRide.logo;
+            document.getElementById('confirmProvider').textContent = selectedRide.provider;
+            document.getElementById('confirmRideType').textContent = selectedRide.type;
+            document.getElementById('confirmTotalFare').textContent = selectedRide.price;
+            
+            document.getElementById('confirmationScreen').classList.remove('hidden');
+        }
+
+        function handleNewBooking() {
+            document.getElementById('confirmationScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('pickupInput').value = '';
+            document.getElementById('dropoffInput').value = '';
+            document.getElementById('resultsContainer').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('hidden');
+            selectedRide = null;
+            currentResults = null;
+        }
+    </script>
+</body>
+</html>
